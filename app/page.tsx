@@ -12,7 +12,7 @@ export default function Home() {
         <div className="p-6 bg-[#071722] rounded border border-[#0b1620]"> 
           <h2 className="text-lg font-medium mb-2">Quickstart</h2>
           <p className="text-sm text-[#9aa7b7] mb-4">Open the Builder to compose a natural-language prompt and build your app.</p>
-          <Link href="/builder"><a className="inline-block px-4 py-2 bg-[#7c3aed] rounded text-white">Open Builder</a></Link>
+          <Link href="/builder" className="inline-block px-4 py-2 bg-[#7c3aed] rounded text-white">Open Builder</Link>
         </div>
 
         <div className="p-6 bg-[#071722] rounded border border-[#0b1620]"> 
