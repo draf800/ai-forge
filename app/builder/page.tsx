@@ -3,17 +3,42 @@ import { useState } from 'react'
 
 export default function BuilderPage() {
   const [prompt, setPrompt] = useState('')
-  const [status, setStatus] = useState('Idle')
+  const [status, setStatus] = useState<'idle'|'building'|'ready'|'error'>('idle')
   const [logs, setLogs] = useState<string[]>([])
+  const [aiResponse, setAiResponse] = useState<string | null>(null)
 
-  function startBuild() {
-    setStatus('Building')
+  async function startBuild() {
+    if (!prompt || prompt.trim().length < 3) {
+      setLogs(prev => [...prev, 'Prompt must be at least 3 characters'])
+      return
+    }
+
+    setStatus('building')
     setLogs(prev => [...prev, `Build started at ${new Date().toLocaleTimeString()}`])
-    // Placeholder: no real build functionality yet
-    setTimeout(() => {
-      setStatus('Ready')
-      setLogs(prev => [...prev, `Build completed at ${new Date().toLocaleTimeString()}`])
-    }, 1200)
+
+    try {
+      const res = await fetch('/api/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        const err = data?.error || 'Build failed'
+        setStatus('error')
+        setLogs(prev => [...prev, `Error: ${err}`])
+        return
+      }
+
+      const plan = data?.data?.plan
+      setAiResponse(plan ? JSON.stringify(plan, null, 2) : JSON.stringify(data?.data, null, 2))
+      setLogs(prev => [...prev, 'Build completed'])
+      setStatus('ready')
+    } catch (err: any) {
+      setStatus('error')
+      setLogs(prev => [...prev, `Network error: ${err?.message ?? String(err)}`])
+    }
   }
 
   return (
@@ -40,6 +65,13 @@ export default function BuilderPage() {
               )}
             </div>
           </div>
+
+          {aiResponse && (
+            <div className="mt-4 bg-[#071522] p-3 rounded border border-[#0b1620]">
+              <h3 className="text-sm font-medium mb-2">AI Response (Planner)</h3>
+              <pre className="text-xs text-[#9aa7b7] max-h-64 overflow-auto">{aiResponse}</pre>
+            </div>
+          )}
         </div>
 
         <aside className="bg-[#071522] p-4 rounded border border-[#0b1620]">
