@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { runOrchestration } from '../../../lib/orchestrator'
+import { runFullOrchestration } from '../../../lib/orchestrator/flow'
 
 const BodySchema = z.object({
   prompt: z.string().min(3)
@@ -16,11 +16,10 @@ export async function POST(request: Request) {
 
     const { prompt } = parsed.data
 
-    const result = await runOrchestration(prompt)
+    const result = await runFullOrchestration(prompt)
 
     return NextResponse.json({ ok: true, data: result })
   } catch (err: any) {
-    // Do not leak secrets or remote error details
     const message = err?.message ?? 'Unknown error'
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

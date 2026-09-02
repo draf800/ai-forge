@@ -6,11 +6,15 @@ const execFile = promisify(child.execFile)
 
 export type RunResult = { stdout: string; stderr: string; exitCode: number }
 
-const ALLOWED = {
+export const ALLOWED = {
   install: { cmd: 'npm', args: ['ci'] },
   lint: { cmd: 'npm', args: ['run', 'lint'] },
   'type-check': { cmd: 'npm', args: ['run', 'type-check'] },
   build: { cmd: 'npm', args: ['run', 'build'] }
+} as const
+
+export function isActionAllowed(action: string) {
+  return Object.prototype.hasOwnProperty.call(ALLOWED, action)
 }
 
 export async function runCommand(projectRoot: string, action: keyof typeof ALLOWED, timeoutMs = 30_000): Promise<RunResult> {
@@ -22,7 +26,6 @@ export async function runCommand(projectRoot: string, action: keyof typeof ALLOW
     const { stdout, stderr } = await execFile(mapped.cmd, mapped.args, execOpts)
     return { stdout: String(stdout || ''), stderr: String(stderr || ''), exitCode: 0 }
   } catch (err: any) {
-    // child_process.execFile throws with properties
     const stdout = err.stdout ? String(err.stdout) : ''
     const stderr = err.stderr ? String(err.stderr) : err.message
     const code = typeof err.code === 'number' ? err.code : 1

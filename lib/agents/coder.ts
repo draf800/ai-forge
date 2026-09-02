@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { getAIProvider } from '../lib/ai/server'
 import { ChatMessage } from '../lib/ai/provider'
+import { extractJson } from '../lib/utils/json'
 
 const Operation = z.object({
   type: z.enum(['create', 'update', 'delete']),
@@ -34,17 +35,7 @@ export async function runCoder(opts: {
   const resp = await provider.createChatCompletion({ messages })
   const raw = resp.content
 
-  // Try to extract JSON
-  let parsed: any = null
-  try {
-    parsed = JSON.parse(raw)
-  } catch (err) {
-    const match = raw.match(/```json([\s\S]*?)```/i)
-    if (match) {
-      try { parsed = JSON.parse(match[1]) } catch (e) {}
-    }
-  }
-
+  const parsed = extractJson(raw)
   if (!parsed) {
     throw new Error('Coder did not return valid JSON')
   }

@@ -1,12 +1,7 @@
 import path from 'path'
 import fs from 'fs/promises'
 import { projectRootPath } from './index'
-
-function isPathUnsafe(p: string) {
-  if (path.isAbsolute(p)) return true
-  if (p.includes('..')) return true
-  return false
-}
+import { isPathUnsafe } from '../utils/json'
 
 function resolvePath(projectId: string, rel: string) {
   if (isPathUnsafe(rel)) throw new Error('Invalid path')
@@ -19,10 +14,15 @@ function resolvePath(projectId: string, rel: string) {
 export async function listFiles(projectId: string) {
   const root = projectRootPath(projectId)
   async function walk(dir: string, base = ''): Promise<string[]> {
-    const entries = await fs.readdir(dir, { withFileTypes: true })
+    let entries: any[]
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true })
+    } catch (err) {
+      return []
+    }
     const results: string[] = []
     for (const e of entries) {
-      const rel = path.join(base, e.name)
+      const rel = base ? path.join(base, e.name) : e.name
       if (e.isDirectory()) {
         const sub = await walk(path.join(dir, e.name), rel)
         results.push(...sub)
