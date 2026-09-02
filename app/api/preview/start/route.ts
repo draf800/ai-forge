@@ -13,8 +13,12 @@ export async function POST(req: Request) {
     const { projectId } = parsed.data
     const exists = await projectExists(projectId)
     if (!exists) return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 })
-    const info = await startPreview(projectId)
-    return NextResponse.json({ ok: true, data: info })
+    try {
+      const info = await startPreview(projectId)
+      return NextResponse.json({ ok: true, data: info })
+    } catch (err: any) {
+      return NextResponse.json({ ok: false, error: String(err?.message ?? err) }, { status: 400 })
+    }
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: String(err?.message ?? err) }, { status: 500 })
   }

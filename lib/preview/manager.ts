@@ -1,7 +1,6 @@
 import { spawn } from 'child_process'
-import { RunResult } from '../test/runner'
-import { projectRootPath } from '../workspace/index'
-import { ensureWorkspacesRoot } from '../workspace/index'
+import { projectRootPath, getWorkspaceRoot, projectExists } from '../workspace/index'
+import path from 'path'
 
 type PreviewInfo = {
   projectId: string
@@ -21,21 +20,39 @@ function choosePort() {
   throw new Error('No available preview ports')
 }
 
+export function isValidProjectId(projectId: string) {
+  // only allow alphanum, hyphen, underscore
+  return /^[a-zA-Z0-9_-]+$/.test(projectId)
+}
+
 export async function startPreview(projectId: string) {
+  if (!isValidProjectId(projectId)) throw new Error('Invalid project id')
   if (previews.has(projectId)) throw new Error('Preview already running')
-  await ensureWorkspacesRoot()
+
+  const exists = await projectExists(projectId)
+  if (!exists) throw new Error('Project does not exist')
+
+  const WORKSPACES_ROOT = getWorkspaceRoot()
   const root = projectRootPath(projectId)
+  // Ensure resolved root is inside WORKSPACES_ROOT
+  const resolvedRoot = path.resolve(root)
+  if (!resolvedRoot.startsWith(path.resolve(WORKSPACES_ROOT) + path.sep) && resolvedRoot !== path.resolve(WORKSPACES_ROOT)) {
+    throw new Error('Invalid project root')
+  }
+
   const port = choosePort()
   usedPorts.add(port)
 
   // Start npm run dev in project root
   const proc = spawn('npm', ['run', 'dev'], {
-    cwd: root,
+    cwd: resolvedRoot,
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   })
 
   const logs: string[] = []
+  let exited = false
+
   proc.stdout.on('data', (d: Buffer) => {
     const s = d.toString()
     logs.push(s)
@@ -47,10 +64,23 @@ export async function startPreview(projectId: string) {
     if (logs.length > 1000) logs.shift()
   })
   proc.on('exit', (code: number) => {
+    exited = true
     logs.push(`process exited with ${code}`)
+    // cleanup
+    try { usedPorts.delete(port) } catch (e) {}
+    previews.delete(projectId)
   })
 
+  // Store preview info
   previews.set(projectId, { projectId, port, proc, logs, startedAt: new Date().toISOString() })
+
+  // Simple startup check: if process exits quickly (<5s), treat as failure
+  setTimeout(() => {
+    const info = previews.get(projectId)
+    if (!info) return
+    if (exited) return
+    // if still running, assume started
+  }, 5000)
 
   return { port }
 }

@@ -1,28 +1,38 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { getPreviewStatus } from '../../../../../lib/preview/manager'
 
-export async function GET(request: Request) {
-  // route: /api/preview/proxy/[projectId]
-  const { pathname } = new URL(request.url)
-  // pathname is like /api/preview/proxy/{projectId}
+export async function handler(request: Request) {
+  const { pathname, search } = new URL(request.url)
   const parts = pathname.split('/').filter(Boolean)
   const idx = parts.indexOf('proxy')
   const projectId = parts[idx + 1]
   if (!projectId) return NextResponse.json({ ok: false, error: 'Missing projectId' }, { status: 400 })
   const status = getPreviewStatus(projectId)
   if (!status) return NextResponse.json({ ok: false, error: 'Preview not running' }, { status: 404 })
-
   const port = status.port
-  // Build target URL by taking the remainder of path after projectId
+
+  // Build target URL
   const subpath = parts.slice(idx + 2).join('/')
-  const target = `http://127.0.0.1:${port}/${subpath}`
+  const qs = search || ''
+  const target = `http://127.0.0.1:${port}/${subpath}${qs}`
 
   try {
-    const res = await fetch(target, { method: 'GET' })
-    const headers = Object.fromEntries(res.headers.entries())
-    const body = await res.arrayBuffer()
-    return new NextResponse(body, { status: res.status, headers })
+    const method = request.method
+    const headers = {} as Record<string, string>
+    request.headers.forEach((v, k) => {
+      if (['host', 'authorization', 'cookie'].includes(k.toLowerCase())) return
+      headers[k] = v
+    })
+
+    const body = await request.arrayBuffer().catch(() => null)
+    const res = await fetch(target, { method, headers, body: body || undefined })
+    const respHeaders = Object.fromEntries(res.headers.entries())
+    const respBody = await res.arrayBuffer()
+    return new NextResponse(respBody, { status: res.status, headers: respHeaders })
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: 'Preview proxy error', details: String(err?.message ?? err) }, { status: 502 })
+    return NextResponse.json({ ok: false, error: 'Preview proxy error' }, { status: 502 })
   }
 }
+
+export { handler as GET, handler as POST, handler as PUT, handler as DELETE }

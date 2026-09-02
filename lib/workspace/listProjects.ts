@@ -1,13 +1,9 @@
 import path from 'path'
 import fs from 'fs/promises'
-import { projectRootPath } from './index'
+import { getWorkspaceRoot } from './index'
 
 export async function listProjects() {
-  const root = projectRootPath('..') // dummy to get WORKSPACES_ROOT
-  // Instead, compute workspaces root from projectRootPath by trimming the projectId
-  // projectRootPath(projectId) returns WORKSPACES_ROOT/projectId
-  // So derive WORKSPACES_ROOT by removing /projectId
-  const WORKSPACES_ROOT = path.dirname(root)
+  const WORKSPACES_ROOT = getWorkspaceRoot()
   try {
     const entries = await fs.readdir(WORKSPACES_ROOT, { withFileTypes: true })
     const projects: { id: string; name?: string }[] = []
